@@ -4,7 +4,7 @@ Puppeto is a programming language designed to provide a simplified and explicit 
 
 Puppeto embraces a minimalistic approach by offering only eight primitive types: String, Integer, Float, Boolean, Function, Array, Object, and Nil. By limiting the number of types, Puppeto encourages developers to focus on the core functionality of their code while still allowing flexibility in handling different data structures and values.
 
-One of Puppeto's distinctive features is its requirement to declare variables before their usage. This approach promotes explicitness and helps catch potential errors early in the development process. Developers declare variables using the let IDENTIFIER = expression syntax, ensuring clear intentions and reducing ambiguity.
+One of Puppeto's distinctive features is its requirement to declare variables before their usage. This approach promotes explicitness and helps catch potential errors early in the development process. Developers must declare variables before using them, ensuring clear intentions and reducing ambiguity.
 
 To enhance ease of use, Puppeto supports optional semicolons, allowing developers to write code with or without them, based on their personal preference. This flexibility accommodates different coding styles while maintaining code readability.
 
