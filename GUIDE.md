@@ -99,7 +99,11 @@ fn sum_all(...ns) {
     let n = 0,
         i = 0;
 
-    
+    for i < get_length(ns) {
+        n += ns[i];
+
+        i++;
+    }
 
     return n;
 }
@@ -139,11 +143,15 @@ Puppeto provides control flow statements to make decisions and repeat code block
     }
     ```
 
-- `for` loop: Iterate over a sequence of values.
+- `for` loop: Runs code until expression is falsy.
 
     ```puppeto
-    for number in numbers {
-        echo number;
+    let i = 0;
+
+    for i < 10 {
+        echo i + "\n";
+
+        i++;
     }
     ```
 
