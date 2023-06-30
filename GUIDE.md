@@ -316,4 +316,22 @@ Puppeto provides several built-in functions that you can use to perform various 
 
 These built-in functions provide powerful tools for manipulating and transforming data in your Puppeto programs. Experiment with them to see how they can enhance your code!
 
+# Program
+Your code should be inside `<?php` and `?>`.
+```puppeto
+<?pup
+
+?>
+```
+You can put any HTML tags in `.pup` files just like how PHP works.
+<br />
+You also may do this
+```puppeto
+<?pup if exp { ?>
+Hello
+<?pup } else { ?>
+World!
+<?pup } ?>
+```
+
 Remember, practice is key to mastering any programming language. So feel free to experiment with these concepts and have fun exploring the world of Puppeto programming!
