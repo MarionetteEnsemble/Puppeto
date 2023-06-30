@@ -323,9 +323,10 @@ Your code should be inside `<?php` and `?>`.
 
 ?>
 ```
-You can put any HTML tags in `.pup` files just like how PHP works.
+You can put any HTML tag in `.pup` files, just like how PHP works.
 <br />
-You also may do this
+<br />
+You also can do this
 ```puppeto
 <?pup if exp { ?>
 Hello
