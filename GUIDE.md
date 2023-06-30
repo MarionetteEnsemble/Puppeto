@@ -1,4 +1,4 @@
-Welcome to the fun and exciting world of Puppeto programming! In this beginner's guide, we'll explore the basics of Puppeto, a language where variables are named in snake_case. We'll also learn about various data types and how to use them in your code.
+Welcome to the fun and exciting world of Puppeto programming! In this beginner's guide, we'll explore the basics of Puppeto. We'll also learn about various data types and how to use them in your code.
 
 # Syntax
 
