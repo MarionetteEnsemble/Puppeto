@@ -1,5 +1,17 @@
 lexer grammar PuppetoLexer;
 
+SPREAD
+    : '...'
+    ;
+NAN
+    : 'nan'
+    ;
+LT
+    : '<'
+    ;
+GT
+    : '>'
+    ;
 PUP_START_TAG
     : '<?pup'
     ;
@@ -31,7 +43,7 @@ NEQ
 LTOE
     : '<='
     ;
-MTOE
+GTOE
     : '>='
     ;
 
@@ -189,13 +201,6 @@ STRING
     | '"' ( ~'"' | '\\' . )* '"'
     ;
 
-LT
-    : '<'
-    ;
-MT
-    : '>'
-    ;
-
 
 WS
     : [ \t\r\n]+ -> channel(HIDDEN)
@@ -206,6 +211,6 @@ SEMICOLON
     ;
 
 HTML
-    : '<' ~('?') ~('>')* '>' HTML*
+    : '<' ~('?') ~('>')* ~('?') '>' HTML*
     | ~('<')+?
     ;

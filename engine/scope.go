@@ -45,7 +45,7 @@ func (s *Scope) Has(key string) bool {
 }
 
 func (s *Scope) Set(key string, value PValue) error {
-	if !s.Has(key) {
+	if _, ok := s.List[key]; !ok {
 		if s.ParentScope != nil {
 			return s.ParentScope.Set(key, value)
 		}

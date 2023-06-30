@@ -7,7 +7,7 @@
     <title>Document</title>
 </head>
 <body>
-    <?pup if (1 > 0) { ?>
+    <?pup if 1 > 0 { ?>
     Hello!
     <?pup } else { ?>
     Oh my god!

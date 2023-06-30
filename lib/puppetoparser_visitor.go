@@ -40,18 +40,6 @@ type PuppetoParserVisitor interface {
 	// Visit a parse tree produced by PuppetoParser#expression.
 	VisitExpression(ctx *ExpressionContext) interface{}
 
-	// Visit a parse tree produced by PuppetoParser#getProperty.
-	VisitGetProperty(ctx *GetPropertyContext) interface{}
-
-	// Visit a parse tree produced by PuppetoParser#setProperty.
-	VisitSetProperty(ctx *SetPropertyContext) interface{}
-
-	// Visit a parse tree produced by PuppetoParser#callExpression.
-	VisitCallExpression(ctx *CallExpressionContext) interface{}
-
-	// Visit a parse tree produced by PuppetoParser#chainExpression.
-	VisitChainExpression(ctx *ChainExpressionContext) interface{}
-
 	// Visit a parse tree produced by PuppetoParser#logicalExpression.
 	VisitLogicalExpression(ctx *LogicalExpressionContext) interface{}
 
@@ -78,6 +66,18 @@ type PuppetoParserVisitor interface {
 
 	// Visit a parse tree produced by PuppetoParser#unaryExpression.
 	VisitUnaryExpression(ctx *UnaryExpressionContext) interface{}
+
+	// Visit a parse tree produced by PuppetoParser#getProperty.
+	VisitGetProperty(ctx *GetPropertyContext) interface{}
+
+	// Visit a parse tree produced by PuppetoParser#setProperty.
+	VisitSetProperty(ctx *SetPropertyContext) interface{}
+
+	// Visit a parse tree produced by PuppetoParser#callExpression.
+	VisitCallExpression(ctx *CallExpressionContext) interface{}
+
+	// Visit a parse tree produced by PuppetoParser#chainExpression.
+	VisitChainExpression(ctx *ChainExpressionContext) interface{}
 
 	// Visit a parse tree produced by PuppetoParser#lhsVariableAssignation.
 	VisitLhsVariableAssignation(ctx *LhsVariableAssignationContext) interface{}

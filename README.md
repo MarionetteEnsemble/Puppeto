@@ -1,4 +1,4 @@
-# Puppeto@0.1
+# Puppeto@0.2
 
 Puppeto is a programming language designed to provide a simplified and explicit alternative to PHP, removing unnecessary features like function type-checking, constants, and more. With its focus on maintaining implicit dynamic typing and simplicity, Puppeto aims to streamline the development process for web developers who prefer a lightweight and straightforward language.
 
@@ -12,9 +12,6 @@ Puppeto is specifically designed to be used in conjunction with HTML, seamlessly
 
 Whether you are a web developer seeking a more streamlined alternative to PHP or someone looking to explore a new language for web development, Puppeto offers simplicity, clarity, and a reduced feature set that focuses on what matters most—building efficient and effective web applications.
 
-# File Extension
-`.pup`
-
 # How to Use
 ```
 go run cli/html/main.go <file>
@@ -25,3 +22,9 @@ Though, there's also another CLI file.
 go run cli/core/main.go <file>
 ```
 Unlike the first one, this one will expect the file starts with `<?pup`.
+
+# Guide
+Please check GUIDE.md m8~
+
+# File Extension
+`.pup`

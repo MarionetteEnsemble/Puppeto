@@ -20,17 +20,17 @@ func NewPosition(line int64, column int64, file string) Position {
 	}
 }
 
-func (p Position) ToString() string {
+func (p Position) to_string() string {
 	return fmt.Sprintf("%s(%s, %s)", p.File, strconv.FormatInt(p.Line, 10), strconv.FormatInt(p.Column, 10))
 }
 
 type Stack = []Position
 
-func StackToString(stack Stack) string {
+func Stackto_string(stack Stack) string {
 	ss := []string{}
 
 	for _, pos := range stack {
-		ss = append(ss, "\tat "+pos.ToString())
+		ss = append(ss, "\tat "+pos.to_string())
 	}
 
 	return strings.Join(ss, "\n")
@@ -47,8 +47,8 @@ func NewPError(name string, message string, stack Stack) PError {
 	o["name"] = name
 	o["message"] = message
 	o["stack"] = stack
-	o["toString"] = func() string {
-		return fmt.Sprintf("%s: %s\n%s", o["name"], message, StackToString(stack))
+	o["to_string"] = func(stack Stack, args []any) (any, any) {
+		return fmt.Sprintf("%s: %s\n%s", o["name"], message, Stackto_string(stack)), nil
 	}
 
 	return o

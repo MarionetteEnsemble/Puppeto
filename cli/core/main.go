@@ -14,17 +14,8 @@ func main() {
 	v, e := engine.RunFile(engine.NewScope(engine.NewGlobalScope(dir, engine.DefaultReadFileFunc)), file)
 
 	if e != nil {
-		if o, ok := e.(engine.PObject); ok {
-			v, e := o["toString"].(engine.PFunction)(engine.Stack{}, engine.PArray{})
-
-			if e != nil {
-				panic(e)
-			}
-
-			panic(v)
-		} else {
-			panic(e)
-		}
+		fmt.Println("Error!")
+		fmt.Println(engine.StringifyError(engine.Stack{}, e))
 	} else {
 		fmt.Println("Last Value: " + engine.ToStr(v))
 	}

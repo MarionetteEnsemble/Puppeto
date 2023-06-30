@@ -51,22 +51,6 @@ func (v *BasePuppetoParserVisitor) VisitExpression(ctx *ExpressionContext) inter
 	return v.VisitChildren(ctx)
 }
 
-func (v *BasePuppetoParserVisitor) VisitGetProperty(ctx *GetPropertyContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasePuppetoParserVisitor) VisitSetProperty(ctx *SetPropertyContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasePuppetoParserVisitor) VisitCallExpression(ctx *CallExpressionContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasePuppetoParserVisitor) VisitChainExpression(ctx *ChainExpressionContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BasePuppetoParserVisitor) VisitLogicalExpression(ctx *LogicalExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -100,6 +84,22 @@ func (v *BasePuppetoParserVisitor) VisitShiftExpression(ctx *ShiftExpressionCont
 }
 
 func (v *BasePuppetoParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasePuppetoParserVisitor) VisitGetProperty(ctx *GetPropertyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasePuppetoParserVisitor) VisitSetProperty(ctx *SetPropertyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasePuppetoParserVisitor) VisitCallExpression(ctx *CallExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasePuppetoParserVisitor) VisitChainExpression(ctx *ChainExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

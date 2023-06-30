@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/MarionetteEnsemble/Puppeto/lib"
@@ -76,12 +77,20 @@ func (t *PuppetoInterpreter) VisitLiteralValue(ctx *lib.LiteralValueContext) (PV
 		}
 
 		return false, nil
+	} else if ctx.NAN() != nil {
+		return math.NaN(), nil
 	}
 
 	panic("LiteralValue")
 }
 
 func (t *PuppetoInterpreter) VisitPair(ctx *lib.PairContext) (PValue, PValue, PError) {
+	if ctx.GetChildCount() == 1 {
+		key := ctx.IDENTIFIER().GetText()
+
+		return key, key, nil
+	}
+
 	exps := ctx.AllExpression()
 	var e PError
 	var key, val PValue
@@ -99,7 +108,14 @@ func (t *PuppetoInterpreter) VisitPair(ctx *lib.PairContext) (PValue, PValue, PE
 			return nil, nil, e
 		}
 	} else {
-		key = ctx.IDENTIFIER().GetText()
+		identI := ctx.IDENTIFIER()
+
+		if identI != nil {
+			key = identI.GetText()
+		} else {
+			key, _ = strconv.Unquote(ctx.STRING().GetText())
+		}
+
 		val, e = t.VisitExpression(exps[0].(*lib.ExpressionContext))
 
 		if e != nil {
@@ -143,7 +159,31 @@ func (t *PuppetoInterpreter) VisitArray(ctx *lib.ArrayContext) (PValue, PError) 
 }
 
 func (t *PuppetoInterpreter) VisitFunctionDefinition(ctx *lib.FunctionDefinitionContext, isExpression bool) (PValue, PError) {
-	var fn PFunction
+	c := ctx.ScopeBody()
+	var fn PFunction = func(stack Stack, args []PValue) (PValue, PValue) {
+		t := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), append(Stack{t.TokenToPosition(ctx.GetStart())}, t.Stack...), t.OutFunc)
+		dargs, rest := t.VisitArgumentList(ctx.ArgumentList().(*lib.ArgumentListContext))
+
+		for i, arg := range dargs {
+			if len(args) > i {
+				_ = t.Scope.Define(arg.Name, args[i])
+			} else {
+				v, e := arg.GetDefaultValue()
+
+				if e != nil {
+					return nil, e
+				}
+
+				_ = t.Scope.Define(arg.Name, v)
+			}
+		}
+
+		if rest != nil && len(dargs) < len(args) {
+			_ = t.Scope.Define(*rest, args[len(dargs):])
+		}
+
+		return t.VisitScopeBody(c.(*lib.ScopeBodyContext))
+	}
 
 	if !isExpression {
 		name := ctx.GetName().GetText()
@@ -157,14 +197,20 @@ func (t *PuppetoInterpreter) VisitFunctionDefinition(ctx *lib.FunctionDefinition
 	return fn, nil
 }
 
-func (t *PuppetoInterpreter) VisitArgumentList(ctx *lib.ArgumentListContext) []Argument {
-	args := []Argument{}
+func (t *PuppetoInterpreter) VisitArgumentList(ctx *lib.ArgumentListContext) ([]Argument, *string) {
+	argsD := []Argument{}
+	var rest *string
 
 	for _, argI := range ctx.AllArgument() {
-		args = append(args, t.VisitArgument(argI.(*lib.ArgumentContext)))
+		argsD = append(argsD, t.VisitArgument(argI.(*lib.ArgumentContext)))
 	}
 
-	return args
+	if ctx.GetRest() != nil {
+		r := ctx.GetRest().GetText()
+		rest = &r
+	}
+
+	return argsD, rest
 }
 
 type Argument struct {
@@ -212,7 +258,7 @@ func (t *PuppetoInterpreter) VisitValue(ctx *lib.ValueContext) (PValue, PError) 
 }
 
 func (t *PuppetoInterpreter) VisitExpression(ctx *lib.ExpressionContext) (PValue, PError) {
-	return t.VisitChainExpression(ctx.ChainExpression().(*lib.ChainExpressionContext))
+	return t.VisitLogicalExpression(ctx.LogicalExpression().(*lib.LogicalExpressionContext))
 }
 
 func (t *PuppetoInterpreter) VisitLogicalExpression(ctx *lib.LogicalExpressionContext) (PValue, PError) {
@@ -289,11 +335,11 @@ func (t *PuppetoInterpreter) VisitComparisonExpression(ctx *lib.ComparisonExpres
 
 			switch ctx.GetChild((i+1)*2 - 1).(*antlr.TerminalNodeImpl).GetText() {
 			case ">=":
-				lhs = Mtoe(lhs, rhs)
+				lhs = Gtoe(lhs, rhs)
 			case "<=":
 				lhs = Ltoe(lhs, rhs)
 			case ">":
-				lhs = Mt(lhs, rhs)
+				lhs = Gt(lhs, rhs)
 			case "<":
 				lhs = Lt(lhs, rhs)
 			}
@@ -465,12 +511,12 @@ func (t *PuppetoInterpreter) VisitUnaryExpression(ctx *lib.UnaryExpressionContex
 		return lhs, nil
 	}
 
-	return t.VisitValue(ctx.Value().(*lib.ValueContext))
+	return t.VisitChainExpression(ctx.ChainExpression().(*lib.ChainExpressionContext))
 
 }
 
 func (t *PuppetoInterpreter) VisitGetProperty(ctx *lib.GetPropertyContext) (PValue, PError) {
-	v, e := t.VisitLogicalExpression(ctx.LogicalExpression().(*lib.LogicalExpressionContext))
+	v, e := t.VisitValue(ctx.Value().(*lib.ValueContext))
 
 	if e != nil {
 		return nil, e
@@ -495,7 +541,7 @@ func (t *PuppetoInterpreter) VisitSetProperty(ctx *lib.SetPropertyContext) (PVal
 		op = "="
 	}
 
-	v, e := t.VisitLogicalExpression(getPropC.LogicalExpression().(*lib.LogicalExpressionContext))
+	v, e := t.VisitValue(getPropC.Value().(*lib.ValueContext))
 
 	if e != nil {
 		return nil, e
@@ -585,8 +631,8 @@ func (t *PuppetoInterpreter) VisitSetProperty(ctx *lib.SetPropertyContext) (PVal
 }
 
 func (t *PuppetoInterpreter) VisitCallExpression(ctx *lib.CallExpressionContext) (PValue, PError) {
-	logicalC := ctx.LogicalExpression().(*lib.LogicalExpressionContext)
-	fn, e := t.VisitLogicalExpression(logicalC)
+	c := ctx.Value().(*lib.ValueContext)
+	fn, e := t.VisitValue(c)
 
 	if e != nil {
 		return nil, e
@@ -595,7 +641,7 @@ func (t *PuppetoInterpreter) VisitCallExpression(ctx *lib.CallExpressionContext)
 	f, ok := fn.(PFunction)
 
 	if !ok {
-		return nil, NewPError(TypeError, "Expected function", append(Stack{t.TokenToPosition(logicalC.GetStart())}, t.Stack...))
+		return nil, NewPError(TypeError, "Expected function", append(Stack{t.TokenToPosition(ctx.GetStop())}, t.Stack...))
 	}
 
 	args := PArray{}
@@ -610,12 +656,18 @@ func (t *PuppetoInterpreter) VisitCallExpression(ctx *lib.CallExpressionContext)
 		args = append(args, v)
 	}
 
-	return f(append(Stack{t.TokenToPosition(ctx.GetStart())}, t.Stack...), args)
+	return f(
+		append(
+			Stack{t.TokenToPosition(ctx.GetStart())},
+			t.Stack...,
+		),
+		args,
+	)
 }
 
 func (t *PuppetoInterpreter) VisitChainExpression(ctx *lib.ChainExpressionContext) (PValue, PError) {
-	if ctx.LogicalExpression() != nil {
-		return t.VisitLogicalExpression(ctx.LogicalExpression().(*lib.LogicalExpressionContext))
+	if ctx.Value() != nil {
+		return t.VisitValue(ctx.Value().(*lib.ValueContext))
 	} else if ctx.GetProperty() != nil {
 		return t.VisitGetProperty(ctx.GetProperty().(*lib.GetPropertyContext))
 	} else if ctx.SetProperty() != nil {
@@ -639,10 +691,10 @@ func (t *PuppetoInterpreter) VisitLhsVariableAssignation(ctx *lib.LhsVariableAss
 
 	switch op {
 	case "++":
-		v = Sum(v, 1)
+		v = Sum(v, int64(1))
 		e = t.Scope.Set(name, v)
 	case "--":
-		v = Sub(v, 1)
+		v = Sub(v, int64(1))
 		e = t.Scope.Set(name, v)
 	}
 
@@ -664,9 +716,9 @@ func (t *PuppetoInterpreter) VisitRhsVariableAssignation(ctx *lib.RhsVariableAss
 
 	switch op {
 	case "++":
-		e = t.Scope.Set(name, Sum(v, 1))
+		e = t.Scope.Set(name, Sum(v, int64(1)))
 	case "--":
-		e = t.Scope.Set(name, Sub(v, 1))
+		e = t.Scope.Set(name, Sub(v, int64(1)))
 	}
 
 	if e != nil {
@@ -875,7 +927,7 @@ func (t *PuppetoInterpreter) VisitScopeWithBreakContinue(ctx *lib.ScopeWithBreak
 	for _, pb := range ctx.AllProgramBodyWithBreakContinue() {
 		ok, e := t.VisitProgramBodyWithBreakContinue(pb.(*lib.ProgramBodyWithBreakContinueContext))
 
-		if e != nil || ok {
+		if e != nil || !ok {
 			return ok, e
 		}
 	}
@@ -886,6 +938,7 @@ func (t *PuppetoInterpreter) VisitScopeWithBreakContinue(ctx *lib.ScopeWithBreak
 func (t *PuppetoInterpreter) VisitLoopStatement(ctx *lib.LoopStatementContext) PError {
 	exp := ctx.Expression().(*lib.ExpressionContext)
 	programBody := ctx.ProgramBodyWithBreakContinue().(*lib.ProgramBodyWithBreakContinueContext)
+	interpreter := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), t.Stack, t.OutFunc)
 
 	for {
 		v, e := t.VisitExpression(exp)
@@ -898,7 +951,6 @@ func (t *PuppetoInterpreter) VisitLoopStatement(ctx *lib.LoopStatementContext) P
 			break
 		}
 
-		interpreter := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), t.Stack, t.OutFunc)
 		ok, e := interpreter.VisitProgramBodyWithBreakContinue(programBody)
 
 		if !ok {
@@ -1003,25 +1055,25 @@ func (t *PuppetoInterpreter) VisitEchoStatement(ctx *lib.EchoStatementContext) P
 }
 
 func (t *PuppetoInterpreter) VisitStatement(ctx *lib.StatementContext) PError {
-	stmtList := ctx.StatementList()
+	stGtList := ctx.StatementList()
 
-	if stmtList != nil {
-		e := t.VisitStatementList(stmtList.(*lib.StatementListContext))
+	if stGtList != nil {
+		e := t.VisitStatementList(stGtList.(*lib.StatementListContext))
 
 		if e != nil {
 			return e
 		}
-	}
+	} else {
+		htmlLists := ctx.AllHtmlList()
 
-	htmlLists := ctx.AllHtmlList()
-
-	if len(htmlLists) > 0 {
-		t.OutFunc(
-			t.Parser.GetTokenStream().GetTextFromTokens(
-				htmlLists[0].GetChild(0).(*antlr.TerminalNodeImpl).GetSymbol(),
-				htmlLists[len(htmlLists)-1].GetChild(0).(*antlr.TerminalNodeImpl).GetSymbol(),
-			),
-		)
+		if len(htmlLists) > 0 {
+			t.OutFunc(
+				t.Parser.GetTokenStream().GetTextFromTokens(
+					htmlLists[0].GetChild(0).(*antlr.TerminalNodeImpl).GetSymbol(),
+					htmlLists[len(htmlLists)-1].GetChild(0).(*antlr.TerminalNodeImpl).GetSymbol(),
+				),
+			)
+		}
 	}
 
 	return nil
@@ -1045,6 +1097,10 @@ func (t *PuppetoInterpreter) VisitStatementList(ctx *lib.StatementListContext) P
 		return t.VisitLoopStatement(node)
 	case *lib.EchoStatementContext:
 		return t.VisitEchoStatement(node)
+	case *lib.VariableAssignationContext:
+		_, e := t.VisitVariableAssignation(node)
+
+		return e
 	}
 
 	panic("Statement")
@@ -1073,7 +1129,7 @@ func (t *PuppetoInterpreter) VisitProgramBodyList(ctx *lib.ProgramBodyListContex
 	for _, programBody := range ctx.AllProgramBody() {
 		v, e = t.VisitProgramBody(programBody.(*lib.ProgramBodyContext))
 
-		if v != nil {
+		if e != nil {
 			return nil, e
 		}
 	}
@@ -1082,6 +1138,10 @@ func (t *PuppetoInterpreter) VisitProgramBodyList(ctx *lib.ProgramBodyListContex
 }
 
 func (t *PuppetoInterpreter) VisitProgram(ctx *lib.ProgramContext) (PValue, PError) {
+	if ctx.ProgramBodyList() == nil {
+		return nil, nil
+	}
+
 	return t.VisitProgramBodyList(ctx.ProgramBodyList().(*lib.ProgramBodyListContext))
 }
 
@@ -1142,34 +1202,100 @@ func DefaultReadFileFunc(stack Stack, specifier string) (string, any) {
 func NewGlobalScope(rootDir string, readFile ReadFileFunc) *Scope {
 	scope := NewScope(nil)
 
-	_ = scope.Define("typeof", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("typeof", func(_ Stack, args []any) (any, any) {
 		return TypeOf(args[0]), nil
 	})
-	_ = scope.Define("to_string", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("is_nan", func(_ Stack, args []any) (any, any) {
+		f, ok := args[0].(float64)
+
+		if !ok {
+			return false, nil
+		}
+
+		return math.IsNaN(f), nil
+	})
+	_ = scope.Define("inspect", func(_ Stack, args []any) (any, any) {
+		return Inspect(args[0]), nil
+	})
+	_ = scope.Define("to_string", func(_ Stack, args []any) (any, any) {
 		return ToStr(args[0]), nil
 	})
-	_ = scope.Define("to_integer", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("to_integer", func(_ Stack, args []any) (any, any) {
 		return ToInt(args[0]), nil
 	})
-	_ = scope.Define("to_bool", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("to_boolean", func(_ Stack, args []any) (any, any) {
 		return ToBool(args[0]), nil
 	})
-	_ = scope.Define("parse_float", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("parse_float", func(_ Stack, args []any) (any, any) {
 		return StrToF(ToStr(args[0])), nil
 	})
-	_ = scope.Define("parse_integer", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("parse_integer", func(_ Stack, args []any) (any, any) {
 		return StrToInt(ToStr(args[0])), nil
 	})
-	_ = scope.Define("parse_error", func(stack Stack, args ...any) (any, any) {
+	_ = scope.Define("parse_error", func(stack Stack, args []any) (any, any) {
 		return StringifyError(stack, args[0]), nil
 	})
-	_ = scope.Define("import_str_as_file", func(_ Stack, args ...any) (any, any) {
+	_ = scope.Define("import_string_as_file", func(_ Stack, args []any) (any, any) {
 		newScope := NewScope(scope)
 		return ImportStr(newScope, JoinPath(rootDir, ToStr(args[0])), ToStr(args[1]))
 	})
-	_ = scope.Define("import_file", func(stack Stack, args ...any) (any, any) {
+	_ = scope.Define("import_file", func(stack Stack, args []any) (any, any) {
 		newScope := NewScope(scope)
 		return ImportFileStr(newScope, JoinPath(rootDir, ToStr(args[0])), readFile, stack)
+	})
+	_ = scope.Define("get_length", func(stack Stack, args []any) (any, any) {
+		arr, ok := args[0].(PArray)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected array", stack)
+		}
+
+		return len(arr), nil
+	})
+	_ = scope.Define("get_entries", func(stack Stack, args []any) (any, any) {
+		o, ok := args[0].(PObject)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected object", stack)
+		}
+
+		a := [][]any{}
+
+		for k, v := range o {
+			a = append(a, []any{k, v})
+		}
+
+		return a, nil
+	})
+	_ = scope.Define("get_keys", func(stack Stack, args []any) (any, any) {
+		o, ok := args[0].(PObject)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected object", stack)
+		}
+
+		a := []string{}
+
+		for k := range o {
+			a = append(a, k)
+		}
+
+		return a, nil
+	})
+	_ = scope.Define("get_values", func(stack Stack, args []any) (any, any) {
+		o, ok := args[0].(PObject)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected object", stack)
+		}
+
+		a := []any{}
+
+		for _, v := range o {
+			a = append(a, v)
+		}
+
+		return a, nil
 	})
 
 	return scope

@@ -15,8 +15,8 @@ func main() {
 
 	if e != nil {
 		fmt.Println("Error!")
-		panic(e.Error())
+		fmt.Println(e.Error())
+	} else {
+		fmt.Println(str)
 	}
-
-	fmt.Println(str)
 }

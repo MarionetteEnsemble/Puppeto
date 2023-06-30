@@ -9,7 +9,15 @@ import (
 
 type ReadFileFunc = func(stack Stack, specifier string) (string, any)
 
+func Inspect(v any) string {
+	return TypeOf(v) + "(" + ToStr(v) + ")"
+}
+
 func StrToF(s string) float64 {
+	if s == "nan" {
+		return math.NaN()
+	}
+
 	f, e := strconv.ParseFloat(s, 64)
 
 	if e != nil {
@@ -20,6 +28,10 @@ func StrToF(s string) float64 {
 }
 
 func StrToInt(s string) int64 {
+	if s == "nan" {
+		return int64(math.NaN())
+	}
+
 	i, e := strconv.ParseInt(s, 10, 64)
 
 	if e != nil {
@@ -36,6 +48,10 @@ func IntToStr(i int64) string {
 }
 
 func FToStr(f float64) string {
+	if math.IsNaN(f) {
+		return "nan"
+	}
+
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
@@ -87,7 +103,7 @@ func ToStr(v any) string {
 		ss := []string{}
 
 		for k, v := range v {
-			ss = append(ss, "\n\t"+k+": "+ToStr(v))
+			ss = append(ss, "\n\t"+k+": "+ToStr(v)+"\n")
 		}
 
 		return "{" + strings.Join(ss, ", ") + "}"
@@ -157,7 +173,7 @@ func Neq(a, b any) bool {
 	return a != b
 }
 
-func Mtoe(a, b any) bool {
+func Gtoe(a, b any) bool {
 	if a == b {
 		return true
 	}
@@ -207,7 +223,7 @@ func Ltoe(a, b any) bool {
 	return ToInt(a) <= ToInt(b)
 }
 
-func Mt(a, b any) bool {
+func Gt(a, b any) bool {
 	switch a := a.(type) {
 	case float64:
 		switch b := b.(type) {
@@ -250,21 +266,32 @@ func Lt(a, b any) bool {
 }
 
 func Sum(a, b any) any {
+
 	switch a := a.(type) {
-	case float64:
-		switch b := b.(type) {
-		case int64:
-			return a + float64(b)
-		case float64:
-			return a + b
-		}
 	case int64:
 		switch b := b.(type) {
 		case int64:
 			return a + b
 		case float64:
 			return float64(a) + b
+		case string:
+			return ToStr(a) + b
 		}
+	case float64:
+		switch b := b.(type) {
+		case int64:
+			return a + float64(b)
+		case float64:
+			return a + b
+		case string:
+			return ToStr(a) + b
+		}
+	case string:
+		return a + ToStr(b)
+	}
+
+	if v, ok := b.(string); ok {
+		return ToStr(a) + v
 	}
 
 	return ToInt(a) + ToInt(b)
@@ -538,7 +565,7 @@ func Set(a, k, v any) (any, any) {
 
 func StringifyError(stack Stack, e PError) string {
 	if o, ok := e.(PObject); ok {
-		f, ok := o["toString"].(PFunction)
+		f, ok := o["to_string"].(PFunction)
 
 		if !ok {
 			return ToStr(e)

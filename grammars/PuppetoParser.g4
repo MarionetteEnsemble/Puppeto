@@ -9,6 +9,7 @@ literalValue
     | IDENTIFIER
     | NIL
     | BOOLEAN
+    | NAN
     ;
 
 object
@@ -16,7 +17,8 @@ object
     ;
 
 pair
-    : ( L_SQUARE expression R_SQUARE | IDENTIFIER ) COLON expression
+    : ( L_SQUARE expression R_SQUARE | IDENTIFIER | STRING ) COLON expression
+    | IDENTIFIER
     ;
 
 array
@@ -28,7 +30,7 @@ functionDefinition
     ;
 
 argumentList
-    : argument (COMMA argument)* COMMA?
+    : argument (COMMA argument)* COMMA? (SPREAD rest=IDENTIFIER)?
     ;
 
 argument
@@ -53,26 +55,7 @@ value
     ;
 
 expression
-    : chainExpression
-    ;
-
-getProperty
-    : logicalExpression ((L_SQUARE expression R_SQUARE) | (DOT IDENTIFIER))
-    ;
-
-setProperty
-    : getProperty (TWO_SIDES_OPERATOR | TO) expression
-    ;
-
-callExpression
-    : logicalExpression L_PARENTHES expression (COMMA expression)* COMMA? R_PARENTHES
-    ;
-
-chainExpression
-    : getProperty
-    | setProperty
-    | callExpression
-    | logicalExpression
+    : logicalExpression
     ;
 
 logicalExpression
@@ -84,7 +67,7 @@ equalityExpression
     ;
 
 comparisonExpression
-    : additiveExpression ( ( LT | MT | LTOE | MTOE ) additiveExpression )*
+    : additiveExpression ( ( LT | GT | LTOE | GTOE ) additiveExpression )*
     ;
 
 additiveExpression
@@ -109,6 +92,25 @@ shiftExpression
 
 unaryExpression
     : ( NOT | MINUS ) unaryExpression
+    | chainExpression
+    ;
+
+getProperty
+    : value ((L_SQUARE expression R_SQUARE) | (DOT IDENTIFIER))
+    ;
+
+setProperty
+    : getProperty (TWO_SIDES_OPERATOR | TO) expression
+    ;
+
+callExpression
+    : value L_PARENTHES expression (COMMA expression)* COMMA? R_PARENTHES
+    ;
+
+chainExpression
+    : getProperty
+    | setProperty
+    | callExpression
     | value
     ;
 
@@ -141,15 +143,15 @@ variableDefinitionBody
     ;
 
 ifStatement
-    : IF L_PARENTHES expression R_PARENTHES scopeBody ( ELSE IF L_PARENTHES expression R_PARENTHES scopeBody )* ( ELSE scopeBody )?
+    : IF expression scopeBody ( ELSE IF expression scopeBody )* ( ELSE scopeBody )?
     ;
 
 loopStatement
-    : FOR L_PARENTHES expression R_PARENTHES programBodyWithBreakContinue
+    : FOR expression programBodyWithBreakContinue
     ;
 
 switchStatement
-    : SWITCH L_PARENTHES expression R_PARENTHES L_CURLY switchCase* ( DEFAULT COLON programBodyWithBreakContinue* )? R_CURLY
+    : SWITCH expression L_CURLY switchCase* ( DEFAULT COLON programBodyWithBreakContinue* )? R_CURLY
     ;
 
 switchCase
@@ -165,7 +167,7 @@ continueStatement
     ;
 
 tryStatement
-    : TRY programBody (CATCH L_PARENTHES IDENTIFIER R_PARENTHES programBody)?
+    : TRY programBody (CATCH IDENTIFIER? programBody)?
     ;
 
 statementList
@@ -176,10 +178,11 @@ statementList
     | switchStatement
     | tryStatement
     | echoStatement
+    | variableAssignation
     ;
 
 statement
-    : (statementList | PUP_END_TAG htmlList* PUP_START_TAG)
+    : (statementList | (PUP_END_TAG htmlList* PUP_START_TAG)+)
     ;
 
 scope
@@ -206,15 +209,9 @@ echoStatement
 
 programBodyWithBreakContinue
     : scopeWithBreakContinue
-    | variableDefinition
-    | functionDefinition
-    | ifStatement
-    | loopStatement
-    | switchStatement
+    | statement
     | breakStatement
     | continueStatement
-    | tryStatement
-    | echoStatement
     | expression
     ;
 
@@ -223,7 +220,7 @@ pupCode
     ;
 
 htmlList
-    : WS | LT | HTML | AND | BAND | BLS | BOOLEAN | BOR | BREAK | BRS | BXOR | CASE | CATCH | COLON | COMMA | CONTINUE | DEFAULT | DOT | DOUBLE_STAR | ECHO | ELSE | EQ | FLOAT | FN | FOR | IDENTIFIER | IF | INTEGER | L_CURLY | L_PARENTHES | L_SQUARE | LET | LTOE | MINUS | MT | MTOE | NEQ |  NIL | NOT | ONE_SIDE_OPERATOR | OR | PERCENT | PLUS | R_CURLY | R_PARENTHES | R_SQUARE | SEMICOLON | SLASH | STAR | STRING | SWITCH | TO | TRY | TWO_SIDES_OPERATOR
+    : WS | LT | HTML | AND | BAND | BLS | BOOLEAN | BOR | BREAK | BRS | BXOR | CASE | CATCH | COLON | COMMA | CONTINUE | DEFAULT | DOT | DOUBLE_STAR | ECHO | ELSE | EQ | FLOAT | FN | FOR | IDENTIFIER | IF | INTEGER | L_CURLY | L_PARENTHES | L_SQUARE | LET | LTOE | MINUS | GT | GTOE | NEQ |  NIL | NOT | ONE_SIDE_OPERATOR | OR | PERCENT | PLUS | R_CURLY | R_PARENTHES | R_SQUARE | SEMICOLON | SLASH | STAR | STRING | SWITCH | TO | TRY | TWO_SIDES_OPERATOR
     ;
 
 html
@@ -231,5 +228,5 @@ html
     ;
 
 program
-    : PUP_START_TAG programBodyList PUP_END_TAG? EOF
+    : PUP_START_TAG programBodyList? PUP_END_TAG? EOF
     ;
