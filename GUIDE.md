@@ -200,7 +200,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = 42;
         let type = typeof(value);
-        ECHO type; // Output: "integer"
+        echo type; // Output: "integer"
         ```
 
 2. **is_nan(float64|any) -> boolean:**
@@ -208,7 +208,7 @@ Puppeto provides several built-in functions that you can use to perform various 
     - Example:
         ```puppeto
         let result = is_nan(10.5 / 0);
-        ECHO result; // Output: true
+        echo result; // Output: true
         ```
 
 3. **inspect(any) -> string:**
@@ -217,7 +217,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let obj = { name: "John", age: 30 };
         let str = inspect(obj);
-        ECHO str; // Output: "{name: 'John', age: 30}"
+        echo str; // Output: "{name: 'John', age: 30}"
         ```
 
 4. **to_string(any) -> string:**
@@ -226,7 +226,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = 42;
         let str = to_string(value);
-        ECHO str; // Output: "42"
+        echo str; // Output: "42"
         ```
 
 5. **to_integer(any) -> integer:**
@@ -235,7 +235,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = "42";
         let integer = to_integer(value);
-        ECHO integer; // Output: 42
+        echo integer; // Output: 42
         ```
 
 6. **to_boolean(any) -> boolean:**
@@ -244,7 +244,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = "true";
         let bool = to_boolean(value);
-        ECHO bool; // Output: true
+        echo bool; // Output: true
         ```
 
 7. **parse_float(string|any) -> float:**
@@ -253,7 +253,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = "3.14";
         let floatNum = parse_float(value);
-        ECHO floatNum; // Output: 3.14
+        echo floatNum; // Output: 3.14
         ```
 
 8. **parse_integer(string|any) -> integer:**
@@ -262,7 +262,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = "42";
         let integerNum = parse_integer(value);
-        ECHO integerNum; // Output: 42
+        echo integerNum; // Output: 42
         ```
 
 9. **parse_error(string|any) -> string:**
@@ -271,7 +271,7 @@ Puppeto provides several built-in functions that you can use to perform various 
         ```puppeto
         let value = "Error: Something went wrong!";
         let errorMessage = parse_error(value);
-        ECHO errorMessage; // Output: "Something went wrong!"
+        echo errorMessage; // Output: "Something went wrong!"
         ```
 
 10. **import_string_as_file(file: string|any, code: string|any) -> string:**
@@ -279,7 +279,7 @@ Puppeto provides several built-in functions that you can use to perform various 
     - Example:
         ```puppeto
         let fileName = "my_file.pup";
-        let code = "ECHO 'Hello, World!';";
+        let code = "echo 'Hello, World!';";
         import_string_as_file(fileName, code);
         import_file(fileName); // Output: "Hello, World!"
         ```
