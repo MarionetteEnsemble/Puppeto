@@ -155,6 +155,10 @@ func (v *BasePuppetoParserVisitor) VisitTryStatement(ctx *TryStatementContext) i
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasePuppetoParserVisitor) VisitReturnStatement(ctx *ReturnStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasePuppetoParserVisitor) VisitStatementList(ctx *StatementListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -184,6 +188,10 @@ func (v *BasePuppetoParserVisitor) VisitEchoStatement(ctx *EchoStatementContext)
 }
 
 func (v *BasePuppetoParserVisitor) VisitProgramBodyWithBreakContinue(ctx *ProgramBodyWithBreakContinueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasePuppetoParserVisitor) VisitPupShortCode(ctx *PupShortCodeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

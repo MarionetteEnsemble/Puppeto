@@ -118,6 +118,9 @@ type PuppetoParserVisitor interface {
 	// Visit a parse tree produced by PuppetoParser#tryStatement.
 	VisitTryStatement(ctx *TryStatementContext) interface{}
 
+	// Visit a parse tree produced by PuppetoParser#returnStatement.
+	VisitReturnStatement(ctx *ReturnStatementContext) interface{}
+
 	// Visit a parse tree produced by PuppetoParser#statementList.
 	VisitStatementList(ctx *StatementListContext) interface{}
 
@@ -141,6 +144,9 @@ type PuppetoParserVisitor interface {
 
 	// Visit a parse tree produced by PuppetoParser#programBodyWithBreakContinue.
 	VisitProgramBodyWithBreakContinue(ctx *ProgramBodyWithBreakContinueContext) interface{}
+
+	// Visit a parse tree produced by PuppetoParser#pupShortCode.
+	VisitPupShortCode(ctx *PupShortCodeContext) interface{}
 
 	// Visit a parse tree produced by PuppetoParser#pupCode.
 	VisitPupCode(ctx *PupCodeContext) interface{}

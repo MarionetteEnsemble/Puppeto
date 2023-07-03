@@ -1,5 +1,17 @@
 <?pup
-fn println(s) {
+fn println(...ss) {
+    let s = "";
+    let i = 0;
+
+    for i < array_get_length(ss) {
+        if i > 0 {
+            s += " ";
+        }
+
+        s += ss[i];
+        i++;
+    }
+
     echo s + "\n";
 }
 
@@ -9,4 +21,9 @@ println(to_string(1.1));
 println(parse_integer("1"));
 println(parse_float("1.12"));
 
+fn sum(a, b) {
+    return a+b;
+}
+
+println("Sum:", sum(1, 2));
 ?>

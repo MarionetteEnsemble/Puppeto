@@ -1,4 +1,4 @@
-# Puppeto@0.2
+# Puppeto@0.3
 
 Puppeto is a programming language designed to provide a simplified and explicit alternative to PHP, removing unnecessary features like function type-checking, constants, and more. With its focus on maintaining implicit dynamic typing and simplicity, Puppeto aims to streamline the development process for web developers who prefer a lightweight and straightforward language.
 

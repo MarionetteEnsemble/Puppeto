@@ -625,3 +625,13 @@ func JoinPath(rootDir string, file string) string {
 
 	return path.Join(rootDir, file)
 }
+
+func Unquote(s string) string {
+	if strings.HasPrefix(s, "'") {
+		return "\"" + strings.ReplaceAll(strings.ReplaceAll(s[1:len(s)-2], "\\'", "'"), "\"", "\\\"") + "\""
+	}
+
+	v, _ := strconv.Unquote(s)
+
+	return v
+}

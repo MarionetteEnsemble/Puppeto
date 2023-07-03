@@ -26,11 +26,11 @@ array
     ;
 
 functionDefinition
-    : FN name=IDENTIFIER? L_PARENTHES argumentList? R_PARENTHES scopeBody
+    : FN name=IDENTIFIER? L_PARENTHES argumentList? (SPREAD rest=IDENTIFIER)? R_PARENTHES scopeBody
     ;
 
 argumentList
-    : argument (COMMA argument)* COMMA? (SPREAD rest=IDENTIFIER)?
+    : argument (COMMA argument)* COMMA?
     ;
 
 argument
@@ -127,11 +127,9 @@ midVariableAssignation
     ;
 
 variableAssignation
-    :   
-        ( midVariableAssignation
-        | lhsVariableAssignation
-        | rhsVariableAssignation
-        )+
+    : (midVariableAssignation | lhsVariableAssignation | rhsVariableAssignation)
+      (COMMA (midVariableAssignation | lhsVariableAssignation | rhsVariableAssignation))*
+      COMMA?
     ;
 
 variableDefinition
@@ -168,6 +166,10 @@ continueStatement
 
 tryStatement
     : TRY programBody (CATCH IDENTIFIER? programBody)?
+;
+
+returnStatement
+    : RETURN expression?
     ;
 
 statementList
@@ -179,6 +181,7 @@ statementList
     | tryStatement
     | echoStatement
     | variableAssignation
+    | returnStatement
     ;
 
 statement
@@ -215,6 +218,10 @@ programBodyWithBreakContinue
     | expression
     ;
 
+pupShortCode
+    : PUP_SHORT_START_TAG expression PUP_SHORT_END_TAG
+    ;
+
 pupCode
     : PUP_START_TAG programBodyList? PUP_END_TAG
     ;
@@ -224,7 +231,7 @@ htmlList
     ;
 
 html
-    : (pupCode | htmlList)+ EOF
+    : (pupCode | pupShortCode | htmlList)+ EOF
     ;
 
 program

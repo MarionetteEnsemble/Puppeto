@@ -99,7 +99,7 @@ fn sum_all(...ns) {
     let n = 0,
         i = 0;
 
-    for i < get_length(ns) {
+    for i < array_get_length(ns) {
         n += ns[i];
 
         i++;
@@ -171,6 +171,11 @@ You can print output using the `echo` statement.
 
 ```puppeto
 echo "Hello, World!"; // Output: "Hello, World!"
+```
+
+Or short tag
+```puppeto
+<?= "Hello, World!" =?>
 ```
 
 10. **Error Handling:**
@@ -286,32 +291,32 @@ Puppeto provides several built-in functions that you can use to perform various 
         import_file("my_script.pup");
         ```
 
-12. **get_length(array) -> integer:**
+12. **array_get_length(array) -> integer:**
     - Get the length of an array.
     - Example:
         ```puppeto
-        get_length([]); //0
+        array_get_length([]); //0
         ```
 
-13. **get_entries(object) -> array:**
+13. **object_get_entries(object) -> array:**
     - Returns an array of a given object's key-value pairs.
     - Example:
         ```puppeto
-        get_entries({a:0}); //[["a", 0]]
+        object_get_entries({a:0}); //[["a", 0]]
         ```
 
-14. **get_keys(object) -> array:**
+14. **object_get_keys(object) -> array:**
     - Returns an array of a given object's keys.
     - Example:
         ```puppeto
-        get_keys({a:0}); //["a"]
+        object_get_keys({a:0}); //["a"]
         ```
 
-15. **get_values(object) -> array:**
+15. **array_get_values(object) -> array:**
     - Returns an array of a given object's values.
     - Example:
         ```puppeto
-        get_values({a:0}); //[0]
+        array_get_values({a:0}); //[0]
         ```
 
 These built-in functions provide powerful tools for manipulating and transforming data in your Puppeto programs. Experiment with them to see how they can enhance your code!

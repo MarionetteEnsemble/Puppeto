@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 	"math"
-	"strconv"
+	"strings"
 
 	"github.com/MarionetteEnsemble/Puppeto/lib"
 	"github.com/antlr4-go/antlr"
@@ -57,7 +57,7 @@ func (t *PuppetoInterpreter) VisitLiteralValue(ctx *lib.LiteralValueContext) (PV
 		return StrToInt(ctx.INTEGER().GetText()), nil
 	} else if ctx.STRING() != nil {
 		str := ctx.STRING().GetText()
-		s, _ := strconv.Unquote(str)
+		s := Unquote(str)
 
 		return s, nil
 	} else if ctx.IDENTIFIER() != nil {
@@ -113,7 +113,7 @@ func (t *PuppetoInterpreter) VisitPair(ctx *lib.PairContext) (PValue, PValue, PE
 		if identI != nil {
 			key = identI.GetText()
 		} else {
-			key, _ = strconv.Unquote(ctx.STRING().GetText())
+			key = Unquote(ctx.STRING().GetText())
 		}
 
 		val, e = t.VisitExpression(exps[0].(*lib.ExpressionContext))
@@ -162,27 +162,34 @@ func (t *PuppetoInterpreter) VisitFunctionDefinition(ctx *lib.FunctionDefinition
 	c := ctx.ScopeBody()
 	var fn PFunction = func(stack Stack, args []PValue) (PValue, PValue) {
 		t := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), append(Stack{t.TokenToPosition(ctx.GetStart())}, t.Stack...), t.OutFunc)
-		dargs, rest := t.VisitArgumentList(ctx.ArgumentList().(*lib.ArgumentListContext))
+		argsListI := ctx.ArgumentList()
+		var dargs []Argument = []Argument{}
 
-		for i, arg := range dargs {
-			if len(args) > i {
-				_ = t.Scope.Define(arg.Name, args[i])
-			} else {
-				v, e := arg.GetDefaultValue()
+		if argsListI != nil {
+			dargs = t.VisitArgumentList(argsListI.(*lib.ArgumentListContext))
 
-				if e != nil {
-					return nil, e
+			for i, arg := range dargs {
+				if len(args) > i {
+					_ = t.Scope.Define(arg.Name, args[i])
+				} else {
+					v, e := arg.GetDefaultValue()
+
+					if e != nil {
+						return nil, e
+					}
+
+					_ = t.Scope.Define(arg.Name, v)
 				}
-
-				_ = t.Scope.Define(arg.Name, v)
 			}
 		}
 
-		if rest != nil && len(dargs) < len(args) {
-			_ = t.Scope.Define(*rest, args[len(dargs):])
+		if ctx.GetRest() != nil && len(dargs) < len(args) {
+			_ = t.Scope.Define(ctx.GetRest().GetText(), args[len(dargs):])
 		}
 
-		return t.VisitScopeBody(c.(*lib.ScopeBodyContext))
+		_, v, e := t.VisitScopeBody(c.(*lib.ScopeBodyContext))
+
+		return v, e
 	}
 
 	if !isExpression {
@@ -197,20 +204,14 @@ func (t *PuppetoInterpreter) VisitFunctionDefinition(ctx *lib.FunctionDefinition
 	return fn, nil
 }
 
-func (t *PuppetoInterpreter) VisitArgumentList(ctx *lib.ArgumentListContext) ([]Argument, *string) {
+func (t *PuppetoInterpreter) VisitArgumentList(ctx *lib.ArgumentListContext) []Argument {
 	argsD := []Argument{}
-	var rest *string
 
 	for _, argI := range ctx.AllArgument() {
 		argsD = append(argsD, t.VisitArgument(argI.(*lib.ArgumentContext)))
 	}
 
-	if ctx.GetRest() != nil {
-		r := ctx.GetRest().GetText()
-		rest = &r
-	}
-
-	return argsD, rest
+	return argsD
 }
 
 type Argument struct {
@@ -231,9 +232,11 @@ func (t *PuppetoInterpreter) VisitArgument(ctx *lib.ArgumentContext) Argument {
 	}}
 }
 
-func (t *PuppetoInterpreter) VisitScopeBody(ctx *lib.ScopeBodyContext) (PValue, PError) {
+func (t *PuppetoInterpreter) VisitScopeBody(ctx *lib.ScopeBodyContext) (bool, PValue, PError) {
 	if ctx.Expression() != nil {
-		return t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
+		v, e := t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
+
+		return true, v, e
 	} else if ctx.Scope() != nil {
 		return t.VisitScope(ctx.Scope().(*lib.ScopeContext))
 	}
@@ -729,7 +732,7 @@ func (t *PuppetoInterpreter) VisitRhsVariableAssignation(ctx *lib.RhsVariableAss
 }
 
 func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAssignationContext) (PValue, PError) {
-	op := ctx.GetChild(0).(*antlr.TerminalNodeImpl).GetText()
+	op := ctx.TWO_SIDES_OPERATOR().GetText()
 	name := ctx.IDENTIFIER().GetText()
 	v, e := t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
 	var s any
@@ -737,7 +740,6 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 	if e != nil {
 		return nil, e
 	}
-
 	switch op {
 	case "=":
 		e = t.Scope.Set(name, v)
@@ -748,7 +750,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Sum(v, s))
+		e = t.Scope.Set(name, Sum(s, v))
 	case "-=":
 		s, e = t.Scope.Get(name)
 
@@ -756,7 +758,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Sub(v, s))
+		e = t.Scope.Set(name, Sub(s, v))
 	case "*=":
 		s, e = t.Scope.Get(name)
 
@@ -764,7 +766,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Mul(v, s))
+		e = t.Scope.Set(name, Mul(s, v))
 	case "/=":
 		s, e = t.Scope.Get(name)
 
@@ -772,7 +774,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Div(v, s))
+		e = t.Scope.Set(name, Div(s, v))
 	case "&=":
 		s, e = t.Scope.Get(name)
 
@@ -780,7 +782,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Band(v, s))
+		e = t.Scope.Set(name, Band(s, v))
 	case "|=":
 		s, e = t.Scope.Get(name)
 
@@ -788,7 +790,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Bor(v, s))
+		e = t.Scope.Set(name, Bor(s, v))
 	case "**=":
 		s, e = t.Scope.Get(name)
 
@@ -796,7 +798,7 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Pow(v, s))
+		e = t.Scope.Set(name, Pow(s, v))
 	case "^=":
 		s, e = t.Scope.Get(name)
 
@@ -804,9 +806,8 @@ func (t *PuppetoInterpreter) VisitMidVariableAssignation(ctx *lib.MidVariableAss
 			return nil, e
 		}
 
-		e = t.Scope.Set(name, Bxor(v, s))
+		e = t.Scope.Set(name, Bxor(s, v))
 	}
-
 	if e != nil {
 		return nil, e
 	}
@@ -867,7 +868,7 @@ func (t *PuppetoInterpreter) VisitVariableDefinitionBody(ctx *lib.VariableDefini
 	return t.Scope.Define(name, v)
 }
 
-func (t *PuppetoInterpreter) VisitIfStatement(ctx *lib.IfStatementContext) PError {
+func (t *PuppetoInterpreter) VisitIfStatement(ctx *lib.IfStatementContext) (bool, PValue, PError) {
 	scopeBodiesI := ctx.AllScopeBody()
 	expsI := ctx.AllExpression()
 
@@ -875,67 +876,69 @@ func (t *PuppetoInterpreter) VisitIfStatement(ctx *lib.IfStatementContext) PErro
 		v, e := t.VisitExpression(expI.(*lib.ExpressionContext))
 
 		if e != nil {
-			return e
+			return true, nil, e
 		}
 
 		if ToBool(v) {
-			_, e := t.VisitScopeBody(scopeBodiesI[i].(*lib.ScopeBodyContext))
+			return t.VisitScopeBody(scopeBodiesI[i].(*lib.ScopeBodyContext))
 
-			return e
 		}
 	}
 
 	if len(scopeBodiesI) > len(expsI) {
-		_, e := t.VisitScopeBody(scopeBodiesI[len(scopeBodiesI)-1].(*lib.ScopeBodyContext))
-
-		return e
+		return t.VisitScopeBody(scopeBodiesI[len(scopeBodiesI)-1].(*lib.ScopeBodyContext))
 	}
 
-	return nil
+	return true, nil, nil
 }
 
-func (t *PuppetoInterpreter) VisitProgramBodyWithBreakContinue(ctx *lib.ProgramBodyWithBreakContinueContext) (bool, PError) {
+func (t *PuppetoInterpreter) VisitProgramBodyWithBreakContinue(ctx *lib.ProgramBodyWithBreakContinueContext) (bool, PValue, PError, bool) {
 	var e any
 
-	for _, node := range ctx.GetChildren() {
-		switch node := node.(type) {
-		case *lib.ScopeWithBreakContinueContext:
-			ok, e := t.VisitScopeWithBreakContinue(node)
+	node := ctx.GetChild(0)
+	switch node := node.(type) {
+	case *lib.ScopeWithBreakContinueContext:
+		ok, v, e, ok2 := t.VisitScopeWithBreakContinue(node)
 
-			if e != nil || !ok {
-				return ok, e
-			}
-		case *lib.BreakStatementContext:
-			return false, nil
-		case *lib.ContinueStatementContext:
-			return true, nil
-		case *lib.ExpressionContext:
-			_, e = t.VisitExpression(node)
-		default:
-			e = t.VisitStatement(node.(*lib.StatementContext))
+		if e != nil || !ok2 || !ok {
+			return ok, v, e, ok2
 		}
+	case *lib.BreakStatementContext:
+		return true, nil, nil, false
+	case *lib.ContinueStatementContext:
+		return true, nil, nil, false
+	case *lib.ExpressionContext:
+		_, e = t.VisitExpression(node)
+	default:
+		ok, v, e := t.VisitStatement(node.(*lib.StatementContext))
 
-		if e != nil {
-			return true, e
-		}
+		return ok, v, e, true
 	}
 
-	return true, nil
+	if e != nil {
+		return true, nil, e, true
+	}
+
+	return true, nil, nil, true
 }
 
-func (t *PuppetoInterpreter) VisitScopeWithBreakContinue(ctx *lib.ScopeWithBreakContinueContext) (bool, PError) {
+func (t *PuppetoInterpreter) VisitScopeWithBreakContinue(ctx *lib.ScopeWithBreakContinueContext) (bool, PValue, PError, bool) {
 	for _, pb := range ctx.AllProgramBodyWithBreakContinue() {
-		ok, e := t.VisitProgramBodyWithBreakContinue(pb.(*lib.ProgramBodyWithBreakContinueContext))
+		ok, v, e, ok2 := t.VisitProgramBodyWithBreakContinue(pb.(*lib.ProgramBodyWithBreakContinueContext))
 
-		if e != nil || !ok {
-			return ok, e
+		if e != nil || !ok2 {
+			return ok, nil, e, ok2
+		}
+
+		if !ok {
+			return ok, v, e, ok2
 		}
 	}
 
-	return true, nil
+	return true, nil, nil, true
 }
 
-func (t *PuppetoInterpreter) VisitLoopStatement(ctx *lib.LoopStatementContext) PError {
+func (t *PuppetoInterpreter) VisitLoopStatement(ctx *lib.LoopStatementContext) (bool, PValue, PError) {
 	exp := ctx.Expression().(*lib.ExpressionContext)
 	programBody := ctx.ProgramBodyWithBreakContinue().(*lib.ProgramBodyWithBreakContinueContext)
 	interpreter := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), t.Stack, t.OutFunc)
@@ -944,74 +947,73 @@ func (t *PuppetoInterpreter) VisitLoopStatement(ctx *lib.LoopStatementContext) P
 		v, e := t.VisitExpression(exp)
 
 		if e != nil {
-			return e
+			return true, v, e
 		}
 
 		if !ToBool(v) {
 			break
 		}
 
-		ok, e := interpreter.VisitProgramBodyWithBreakContinue(programBody)
+		ok, v, e, ok2 := interpreter.VisitProgramBodyWithBreakContinue(programBody)
 
-		if !ok {
-			return nil
+		if !ok2 || !ok {
+			return ok, v, nil
 		}
 
 		if e != nil {
-			return e
+			return ok, nil, e
 		}
 	}
 
-	return nil
+	return true, nil, nil
 }
 
-func (t *PuppetoInterpreter) VisitSwitchStatement(ctx *lib.SwitchStatementContext) PError {
+func (t *PuppetoInterpreter) VisitSwitchStatement(ctx *lib.SwitchStatementContext) (bool, PValue, PError) {
 	v, e := t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
 
 	if e != nil {
-		return e
+		return true, v, e
 	}
 
 	for _, scI := range ctx.AllSwitchCase() {
 		interpreter := NewPuppetoInterpreter(t.Parser, t.File, NewScope(t.Scope), t.Stack, t.OutFunc)
-		ok, e := interpreter.VisitSwitchCase(scI.(*lib.SwitchCaseContext), v)
+		ok, v, e, ok2 := interpreter.VisitSwitchCase(scI.(*lib.SwitchCaseContext), v)
 
 		if e != nil {
-			return e
+			return ok, nil, e
 		}
 
-		if ok {
-			return nil
+		if !ok2 || !ok {
+			return ok, v, nil
 		}
 	}
 
 	for _, pb := range ctx.AllProgramBodyWithBreakContinue() {
-		ok, e := t.VisitProgramBodyWithBreakContinue(pb.(*lib.ProgramBodyWithBreakContinueContext))
-
-		if !ok {
-			return nil
-		}
+		ok, v, e, ok2 := t.VisitProgramBodyWithBreakContinue(pb.(*lib.ProgramBodyWithBreakContinueContext))
 
 		if e != nil {
-			return e
+			return true, nil, e
+		}
+		if !ok2 || !ok {
+			return ok, v, nil
 		}
 	}
 
-	return nil
+	return true, nil, nil
 }
 
-func (t *PuppetoInterpreter) VisitSwitchCase(ctx *lib.SwitchCaseContext, value any) (bool, PError) {
+func (t *PuppetoInterpreter) VisitSwitchCase(ctx *lib.SwitchCaseContext, value any) (bool, PValue, PError, bool) {
 	v, e := t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
 
 	if e != nil {
-		return false, e
+		return true, nil, e, false
 	}
 
 	if v == value {
 		return t.VisitProgramBodyWithBreakContinue(ctx.ProgramBodyWithBreakContinue().(*lib.ProgramBodyWithBreakContinueContext))
 	}
 
-	return false, nil
+	return true, nil, nil, false
 }
 
 func (t *PuppetoInterpreter) VisitBreakStatement(ctx *lib.BreakStatementContext) PError {
@@ -1022,9 +1024,9 @@ func (t *PuppetoInterpreter) VisitContinueStatement(ctx *lib.ContinueStatementCo
 	panic("not necessary")
 }
 
-func (t *PuppetoInterpreter) VisitTryStatement(ctx *lib.TryStatementContext) PError {
+func (t *PuppetoInterpreter) VisitTryStatement(ctx *lib.TryStatementContext) (bool, PValue, PError) {
 	programBodies := ctx.AllProgramBody()
-	_, e := t.VisitProgramBody(programBodies[0].(*lib.ProgramBodyContext))
+	ok, v, e := t.VisitProgramBody(programBodies[0].(*lib.ProgramBodyContext))
 
 	if e != nil && len(programBodies) > 1 {
 		if ctx.IDENTIFIER() != nil {
@@ -1032,14 +1034,20 @@ func (t *PuppetoInterpreter) VisitTryStatement(ctx *lib.TryStatementContext) PEr
 			_ = t.Scope.Define(ctx.IDENTIFIER().GetText(), e)
 		}
 
-		_, e := t.VisitProgramBody(programBodies[1].(*lib.ProgramBodyContext))
+		ok, v, e := t.VisitProgramBody(programBodies[1].(*lib.ProgramBodyContext))
 
 		if e != nil {
-			return e
+			return ok, nil, e
+		}
+		if !ok {
+			return ok, v, nil
 		}
 	}
+	if !ok {
+		return ok, v, nil
+	}
 
-	return nil
+	return true, nil, nil
 }
 
 func (t *PuppetoInterpreter) VisitEchoStatement(ctx *lib.EchoStatementContext) PError {
@@ -1054,14 +1062,17 @@ func (t *PuppetoInterpreter) VisitEchoStatement(ctx *lib.EchoStatementContext) P
 	return nil
 }
 
-func (t *PuppetoInterpreter) VisitStatement(ctx *lib.StatementContext) PError {
+func (t *PuppetoInterpreter) VisitStatement(ctx *lib.StatementContext) (bool, PValue, PError) {
 	stGtList := ctx.StatementList()
 
 	if stGtList != nil {
-		e := t.VisitStatementList(stGtList.(*lib.StatementListContext))
+		ok, v, e := t.VisitStatementList(stGtList.(*lib.StatementListContext))
 
 		if e != nil {
-			return e
+			return ok, nil, e
+		}
+		if !ok {
+			return ok, v, nil
 		}
 	} else {
 		htmlLists := ctx.AllHtmlList()
@@ -1076,17 +1087,29 @@ func (t *PuppetoInterpreter) VisitStatement(ctx *lib.StatementContext) PError {
 		}
 	}
 
-	return nil
+	return true, nil, nil
 }
 
-func (t *PuppetoInterpreter) VisitStatementList(ctx *lib.StatementListContext) PError {
+func (t *PuppetoInterpreter) VisitReturnStatement(ctx *lib.ReturnStatementContext) (PValue, PError) {
+	if ctx.Expression() != nil {
+		return t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
+	}
+
+	return nil, nil
+}
+
+func (t *PuppetoInterpreter) VisitStatementList(ctx *lib.StatementListContext) (bool, PValue, PError) {
 	switch node := ctx.GetChild(0).(type) {
 	case *lib.VariableDefinitionContext:
-		return t.VisitVariableDefinition(node)
+		return true, nil, t.VisitVariableDefinition(node)
 	case *lib.FunctionDefinitionContext:
-		_, e := t.VisitFunctionDefinition(node, false)
+		v, e := t.VisitFunctionDefinition(node, false)
 
-		return e
+		return true, v, e
+	case *lib.ReturnStatementContext:
+		v, e := t.VisitReturnStatement(node)
+
+		return false, v, e
 	case *lib.IfStatementContext:
 		return t.VisitIfStatement(node)
 	case *lib.SwitchStatementContext:
@@ -1096,45 +1119,51 @@ func (t *PuppetoInterpreter) VisitStatementList(ctx *lib.StatementListContext) P
 	case *lib.LoopStatementContext:
 		return t.VisitLoopStatement(node)
 	case *lib.EchoStatementContext:
-		return t.VisitEchoStatement(node)
+		return true, nil, t.VisitEchoStatement(node)
 	case *lib.VariableAssignationContext:
 		_, e := t.VisitVariableAssignation(node)
 
-		return e
+		return true, nil, e
 	}
 
 	panic("Statement")
 }
 
-func (t *PuppetoInterpreter) VisitScope(ctx *lib.ScopeContext) (PValue, PError) {
+func (t *PuppetoInterpreter) VisitScope(ctx *lib.ScopeContext) (bool, PValue, PError) {
 	return t.VisitProgramBodyList(ctx.ProgramBodyList().(*lib.ProgramBodyListContext))
 }
 
-func (t *PuppetoInterpreter) VisitProgramBody(ctx *lib.ProgramBodyContext) (PValue, PError) {
+func (t *PuppetoInterpreter) VisitProgramBody(ctx *lib.ProgramBodyContext) (bool, PValue, PError) {
 	if ctx.Statement() != nil {
-		return nil, t.VisitStatement(ctx.Statement().(*lib.StatementContext))
+		return t.VisitStatement(ctx.Statement().(*lib.StatementContext))
 	} else if ctx.Scope() != nil {
 		return t.VisitScope(ctx.Scope().(*lib.ScopeContext))
 	} else if ctx.Expression() != nil {
-		return t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
+		_, e := t.VisitExpression(ctx.Expression().(*lib.ExpressionContext))
+
+		return true, nil, e
 	}
 
 	panic("ProgramBody")
 }
 
-func (t *PuppetoInterpreter) VisitProgramBodyList(ctx *lib.ProgramBodyListContext) (PValue, PError) {
+func (t *PuppetoInterpreter) VisitProgramBodyList(ctx *lib.ProgramBodyListContext) (bool, PValue, PError) {
 	var v any
 	var e any
+	var ok bool = true
 
 	for _, programBody := range ctx.AllProgramBody() {
-		v, e = t.VisitProgramBody(programBody.(*lib.ProgramBodyContext))
+		ok, v, e = t.VisitProgramBody(programBody.(*lib.ProgramBodyContext))
 
 		if e != nil {
-			return nil, e
+			return ok, nil, e
+		}
+		if !ok {
+			return ok, v, e
 		}
 	}
 
-	return v, e
+	return ok, v, e
 }
 
 func (t *PuppetoInterpreter) VisitProgram(ctx *lib.ProgramContext) (PValue, PError) {
@@ -1142,17 +1171,37 @@ func (t *PuppetoInterpreter) VisitProgram(ctx *lib.ProgramContext) (PValue, PErr
 		return nil, nil
 	}
 
-	return t.VisitProgramBodyList(ctx.ProgramBodyList().(*lib.ProgramBodyListContext))
+	_, v, e := t.VisitProgramBodyList(ctx.ProgramBodyList().(*lib.ProgramBodyListContext))
+
+	return v, e
 }
 
-func (t *PuppetoInterpreter) VisitPupCode(ctx *lib.PupCodeContext) (any, PError) {
+func (t *PuppetoInterpreter) VisitPupCode(ctx *lib.PupCodeContext) (bool, PValue, PError) {
 	programBodyList := ctx.ProgramBodyList()
 
 	if programBodyList == nil {
-		return nil, nil
+		return true, nil, nil
 	}
 
 	return t.VisitProgramBodyList(programBodyList.(*lib.ProgramBodyListContext))
+}
+
+func (t *PuppetoInterpreter) VisitPupShortCode(ctx *lib.PupShortCodeContext) PError {
+	expI := ctx.Expression()
+
+	if expI == nil {
+		return nil
+	}
+
+	v, e := t.VisitExpression(expI.(*lib.ExpressionContext))
+
+	if e != nil {
+		return e
+	}
+
+	t.OutFunc(ToStr(v))
+
+	return nil
 }
 
 func (t *PuppetoInterpreter) VisitHtml(ctx *lib.HtmlContext) error {
@@ -1166,6 +1215,8 @@ func (t *PuppetoInterpreter) VisitHtml(ctx *lib.HtmlContext) error {
 			txts = append(txts, node.GetSymbol())
 		case *antlr.ErrorNodeImpl:
 			txts = append(txts, node.GetSymbol())
+		case *lib.PupShortCodeContext:
+			t.VisitPupShortCode(node)
 		case *lib.HtmlListContext:
 			txts = append(txts, node.GetChild(0).(*antlr.TerminalNodeImpl).GetSymbol())
 		case *lib.PupCodeContext:
@@ -1179,10 +1230,13 @@ func (t *PuppetoInterpreter) VisitHtml(ctx *lib.HtmlContext) error {
 			txts = append(txts, node.GetStop())
 			min = len(node.GetStop().GetText())
 
-			_, e := t.VisitPupCode(node)
+			ok, _, e := t.VisitPupCode(node)
 
 			if e != nil {
 				return fmt.Errorf(StringifyError(append(Stack{t.TokenToPosition(node.GetStart())}, t.Stack...), e))
+			}
+			if !ok {
+				return nil
 			}
 		}
 	}
@@ -1243,20 +1297,40 @@ func NewGlobalScope(rootDir string, readFile ReadFileFunc) *Scope {
 		newScope := NewScope(scope)
 		return ImportFileStr(newScope, JoinPath(rootDir, ToStr(args[0])), readFile, stack)
 	})
-	_ = scope.Define("get_length", func(stack Stack, args []any) (any, any) {
+	_ = scope.Define("array_join", func(stack Stack, args []any) (any, any) {
+		ss := []string{}
 		arr, ok := args[0].(PArray)
 
 		if !ok {
-			return nil, NewPError(TypeError, "Expected array", stack)
+			return nil, NewPError(TypeError, "Expected array #0", stack)
 		}
 
-		return len(arr), nil
+		sep, ok := args[1].(string)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected string #1", stack)
+		}
+
+		for _, v := range arr {
+			ss = append(ss, ToStr(v))
+		}
+
+		return strings.Join(ss, sep), nil
 	})
-	_ = scope.Define("get_entries", func(stack Stack, args []any) (any, any) {
+	_ = scope.Define("array_get_length", func(stack Stack, args []any) (any, any) {
+		arr, ok := args[0].(PArray)
+
+		if !ok {
+			return nil, NewPError(TypeError, "Expected array #0", stack)
+		}
+
+		return int64(len(arr)), nil
+	})
+	_ = scope.Define("object_get_entries", func(stack Stack, args []any) (any, any) {
 		o, ok := args[0].(PObject)
 
 		if !ok {
-			return nil, NewPError(TypeError, "Expected object", stack)
+			return nil, NewPError(TypeError, "Expected object #0", stack)
 		}
 
 		a := [][]any{}
@@ -1267,11 +1341,11 @@ func NewGlobalScope(rootDir string, readFile ReadFileFunc) *Scope {
 
 		return a, nil
 	})
-	_ = scope.Define("get_keys", func(stack Stack, args []any) (any, any) {
+	_ = scope.Define("object_get_keys", func(stack Stack, args []any) (any, any) {
 		o, ok := args[0].(PObject)
 
 		if !ok {
-			return nil, NewPError(TypeError, "Expected object", stack)
+			return nil, NewPError(TypeError, "Expected object #0", stack)
 		}
 
 		a := []string{}
@@ -1282,11 +1356,11 @@ func NewGlobalScope(rootDir string, readFile ReadFileFunc) *Scope {
 
 		return a, nil
 	})
-	_ = scope.Define("get_values", func(stack Stack, args []any) (any, any) {
+	_ = scope.Define("object_get_values", func(stack Stack, args []any) (any, any) {
 		o, ok := args[0].(PObject)
 
 		if !ok {
-			return nil, NewPError(TypeError, "Expected object", stack)
+			return nil, NewPError(TypeError, "Expected object #0", stack)
 		}
 
 		a := []any{}
